@@ -145,6 +145,7 @@ public class TabListVariables {
         String result = format.replace("{name}", player.getGameProfile().getName());
         //?}
         result = result.replace("{rank}", getPlayerRank(player));
+        result = result.replace("{ping}", String.valueOf(getPlayerPing(player)));
         return convertColorCodes(result);
     }
 
@@ -152,7 +153,7 @@ public class TabListVariables {
         if (isFTBRanksLoaded()) {
             return FTBRanksIntegration.getPlayerRankName(player);
         }
-        return "";
+        return FTBRanksIntegration.getLuckPermsUserPrefix(player);
     }
 
     static int getPlayerRankPower(ServerPlayer player) {

@@ -38,6 +38,10 @@ repositories {
         name = 'FTB'
         url = 'https://maven.saps.dev/releases/'
     }
+    maven {
+        name = "luckperms-repo"
+        url = "https://repo.luckperms.net/"
+    }
 }
 
 dependencies {
@@ -55,6 +59,7 @@ dependencies {
     compileOnly "dev.architectury:architectury-neoforge:${architectury_api_version}"
     compileOnly "curse.maven:ftb-library-forge-404465:6711324"
     compileOnly "curse.maven:ftb-ranks-forge-314905:6431744"
+    compileOnly "net.luckperms:api:5.4"
 }
 
 loom {

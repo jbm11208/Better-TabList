@@ -1,13 +1,20 @@
 package com.sennecools.tablist;
 
 import dev.ftb.mods.ftbranks.api.FTBRanksAPI;
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.LuckPermsProvider;
+import net.luckperms.api.model.user.UserManager;
 import dev.ftb.mods.ftbranks.api.PermissionValue;
 import dev.ftb.mods.ftbranks.api.Rank;
+import net.luckperms.api.model.user.User;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 
 import java.util.List;
 
 public class FTBRanksIntegration {
+
+    static LuckPerms api = LuckPermsProvider.get();
 
     public static String getPlayerRankName(ServerPlayer player) {
         List<Rank> ranks = FTBRanksAPI.manager().getRanks(player);
@@ -15,6 +22,12 @@ public class FTBRanksIntegration {
             return ranks.getFirst().getName();
         }
         return "";
+    }
+
+    public static String getLuckPermsUserPrefix(ServerPlayer player) {
+        User user = api.getPlayerAdapter(ServerPlayer.class).getUser(player);
+        String prefix = user.getCachedData().getMetaData().getPrefix();
+        return prefix;
     }
 
     public static int getPlayerRankPower(ServerPlayer player) {
