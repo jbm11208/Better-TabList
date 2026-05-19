@@ -9,6 +9,8 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.PlayerList;
+import net.minecraft.world.entity.player.Player;
 
 import java.lang.management.ManagementFactory;
 import java.time.LocalDateTime;
@@ -69,6 +71,9 @@ public class TabListVariables {
         }
         if (output.contains("#PLAYERCOUNT")) {
             output = output.replace("#PLAYERCOUNT", String.valueOf(getPlayerCount(server)));
+        }
+        if (output.contains("#OPCOUNT")) {
+            output = output.replace("#OPCOUNT", String.valueOf(getOpCount(server)));
         }
         if (output.contains("#MEMORY")) {
             output = output.replace("#MEMORY", getMemoryUsage());
@@ -177,6 +182,18 @@ public class TabListVariables {
 
     private static int getPlayerCount(MinecraftServer server) {
         return server.getPlayerList().getPlayerCount();
+    }
+
+    private static int getOpCount(MinecraftServer server) {
+        int count = 0;
+        PlayerList playerList = server.getPlayerList();
+
+        for (ServerPlayer player : playerList.getPlayers()) {
+            if (playerList.isOp(player.getGameProfile())) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private static String getMemoryUsage() {
