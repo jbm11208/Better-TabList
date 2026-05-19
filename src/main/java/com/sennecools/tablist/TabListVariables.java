@@ -20,11 +20,15 @@ import java.util.regex.Pattern;
 
 public class TabListVariables {
 
-    private static final Pattern HEX_COLOR_PATTERN = Pattern.compile("&#([0-9a-fA-F]{6})");
-    private static final Pattern COLOR_CODE_PATTERN = Pattern.compile("&([0-9a-fA-Fk-oK-OrR])");
-    private static final Pattern GRADIENT_MINIMESSAGE_PATTERN = Pattern.compile("<gradient:(#[0-9a-fA-F]{6}(?::#[0-9a-fA-F]{6})+)>(.*?)</gradient>");
-    private static final Pattern GRADIENT_TAB_PATTERN = Pattern.compile("<(#[0-9a-fA-F]{6})>(.*?)</(#[0-9a-fA-F]{6})>");
-    private static final Pattern HEX_CODE_IN_TEXT_PATTERN = Pattern.compile("&x(&[0-9a-fA-F]){6}");
+    private static final Pattern HEX_COLOR_PATTERN = Pattern.compile("&#([A-Fa-f0-9]{6})");
+    private static final Pattern COLOR_CODE_PATTERN = Pattern.compile("&([0-9A-FK-ORa-fk-or])");
+    private static final Pattern HEX_CODE_IN_TEXT_PATTERN = Pattern.compile("&x(?:&[A-Fa-f0-9]){6}");
+    private static final Pattern GRADIENT_MINIMESSAGE_PATTERN = Pattern.compile("<gradient:((?:#[A-Fa-f0-9]{6}:?)+)>(.*?)</gradient>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    private static final Pattern GRADIENT_TAB_PATTERN = Pattern.compile("<(#[A-Fa-f0-9]{6})>(.*?)</(#[A-Fa-f0-9]{6})>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    private static final Pattern SECTION_HEX_CODE_PATTERN = Pattern.compile("§x(?:§[A-Fa-f0-9]){6}");
+    private static final Pattern CMI_SINGLE_HEX_PATTERN = Pattern.compile("&?\\{(#[A-Fa-f0-9]{6})}", Pattern.CASE_INSENSITIVE);
+    private static final Pattern GRADIENT_CMI_PATTERN = Pattern.compile("&?\\{(#[A-Fa-f0-9]{6})>}(.+?)&?\\{(#[A-Fa-f0-9]{6})<}", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    private static final Pattern CMI_COLOR_RANGE_PATTERN = Pattern.compile("&?\\{(#[A-Fa-f0-9]{6})}(.*?)&?\\{(#[A-Fa-f0-9]{6})}", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
@@ -197,7 +201,36 @@ public class TabListVariables {
     }
 
     static String convertColorCodes(String text) {
+        Matcher ampXMatcher = HEX_CODE_IN_TEXT_PATTERN.matcher(text);
+        StringBuilder ampXSb = new StringBuilder();
+        while (ampXMatcher.find()) {
+            String converted = ampXMatcher.group().replace('&', '\u00A7');
+            ampXMatcher.appendReplacement(ampXSb, Matcher.quoteReplacement(converted));
+        }
+        ampXMatcher.appendTail(ampXSb);
+        text = ampXSb.toString();
+
         text = processGradients(text);
+        Matcher cmiSingleMatcher = CMI_SINGLE_HEX_PATTERN.matcher(text);
+        StringBuilder cmiSb = new StringBuilder();
+
+        while (cmiSingleMatcher.find()) {
+            String hex = cmiSingleMatcher.group(1).substring(1);
+
+            StringBuilder replacement = new StringBuilder("§x");
+
+            for (char c : hex.toCharArray()) {
+                replacement.append('§').append(c);
+            }
+
+            cmiSingleMatcher.appendReplacement(
+                    cmiSb,
+                    Matcher.quoteReplacement(replacement.toString())
+            );
+        }
+
+        cmiSingleMatcher.appendTail(cmiSb);
+        text = cmiSb.toString();
 
         Matcher hexMatcher = HEX_COLOR_PATTERN.matcher(text);
         StringBuilder sb = new StringBuilder();
@@ -341,7 +374,7 @@ public class TabListVariables {
     }
 
     private static String processGradients(String text) {
-        // Process MiniMessage-style gradients first: <gradient:#FF0000:#0000FF>text</gradient>
+// Process MiniMessage-style gradients first: <gradient:#FF0000:#0000FF>text</gradient>
         Matcher miniMatcher = GRADIENT_MINIMESSAGE_PATTERN.matcher(text);
         StringBuilder sb = new StringBuilder();
         while (miniMatcher.find()) {
@@ -352,7 +385,11 @@ public class TabListVariables {
             for (String hex : colorHexes) {
                 stops.add(parseHexColor(hex));
             }
-            miniMatcher.appendReplacement(sb, Matcher.quoteReplacement(applyGradient(innerText, stops)));
+
+            miniMatcher.appendReplacement(
+                    sb,
+                    Matcher.quoteReplacement(applyGradient(innerText, stops))
+            );
         }
         miniMatcher.appendTail(sb);
         text = sb.toString();
@@ -367,9 +404,54 @@ public class TabListVariables {
             List<int[]> stops = new ArrayList<>();
             stops.add(parseHexColor(startHex));
             stops.add(parseHexColor(endHex));
-            tabMatcher.appendReplacement(sb, Matcher.quoteReplacement(applyGradient(innerText, stops)));
+
+            tabMatcher.appendReplacement(
+                    sb,
+                    Matcher.quoteReplacement(applyGradient(innerText, stops))
+            );
         }
         tabMatcher.appendTail(sb);
+        text = sb.toString();
+        Matcher cmiGradientMatcher = GRADIENT_CMI_PATTERN.matcher(text);
+        sb = new StringBuilder();
+
+        while (cmiGradientMatcher.find()) {
+            String startHex = cmiGradientMatcher.group(1);
+            String innerText = cmiGradientMatcher.group(2);
+            String endHex = cmiGradientMatcher.group(3);
+
+            List<int[]> stops = new ArrayList<>();
+            stops.add(parseHexColor(startHex));
+            stops.add(parseHexColor(endHex));
+
+            cmiGradientMatcher.appendReplacement(
+                    sb,
+                    Matcher.quoteReplacement(applyGradient(innerText, stops))
+            );
+        }
+
+        cmiGradientMatcher.appendTail(sb);
+        text = sb.toString();
+
+        Matcher cmiRangeMatcher = CMI_COLOR_RANGE_PATTERN.matcher(text);
+        sb = new StringBuilder();
+
+        while (cmiRangeMatcher.find()) {
+            String startHex = cmiRangeMatcher.group(1);
+            String innerText = cmiRangeMatcher.group(2);
+            String endHex = cmiRangeMatcher.group(3);
+
+            List<int[]> stops = new ArrayList<>();
+            stops.add(parseHexColor(startHex));
+            stops.add(parseHexColor(endHex));
+
+            cmiRangeMatcher.appendReplacement(
+                    sb,
+                    Matcher.quoteReplacement(applyGradient(innerText, stops))
+            );
+        }
+
+        cmiRangeMatcher.appendTail(sb);
 
         return sb.toString();
     }
@@ -387,6 +469,7 @@ public class TabListVariables {
 
     private static String applyGradient(String innerText, List<int[]> stops) {
         String stripped = HEX_CODE_IN_TEXT_PATTERN.matcher(innerText).replaceAll("");
+        stripped = SECTION_HEX_CODE_PATTERN.matcher(stripped).replaceAll("");
 
         List<Character> visibleChars = new ArrayList<>();
         List<String> formattingBefore = new ArrayList<>();
